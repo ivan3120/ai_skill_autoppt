@@ -9,12 +9,12 @@ import io
 # 设置输出编码
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-# 设置路径 - 相对于SKILL根目录
+# 设置路径 - 相对于项目根目录
 skill_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(skill_root, 'scripts'))
 
-from services.excel_parser import ExcelParser
-from services.ppt_generator import generate_ppt
+from scripts.services.excel_parser import ExcelParser
+from scripts.services.ppt_generator import generate_ppt
 import json
 
 # 测试1: 解析Excel数据
