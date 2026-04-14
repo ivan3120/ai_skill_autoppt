@@ -86,9 +86,24 @@ class LLMConfig:
     """LLM配置类"""
 
     def __init__(self):
-        self.api_key = Config.get("llm.api_key", "")
-        self.base_url = Config.get("llm.base_url", "https://api.minimaxi.com/anthropic")
-        self.model = Config.get("llm.model", "MiniMax-M2.5")
+        # 优先从 Claude Code 环境变量获取
+        # Claude Code 使用 ANTHROPIC_ 前缀的环境变量
+        # 也支持 LLM_ 前缀的通用变量
+        self.api_key = (
+            os.environ.get("ANTHROPIC_API_KEY") or
+            os.environ.get("LLM_API_KEY") or
+            Config.get("llm.api_key", "")
+        )
+        self.base_url = (
+            os.environ.get("ANTHROPIC_BASE_URL") or
+            os.environ.get("LLM_BASE_URL") or
+            Config.get("llm.base_url", "https://api.minimax.com/anthropic")
+        )
+        self.model = (
+            os.environ.get("ANTHROPIC_MODEL") or
+            os.environ.get("LLM_MODEL") or
+            Config.get("llm.model", "MiniMax-M2.5")
+        )
         self.temperature = 0.7
         self.max_tokens = 4096
 

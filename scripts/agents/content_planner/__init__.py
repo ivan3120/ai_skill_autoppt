@@ -57,16 +57,28 @@ class ContentPlannerAgent(BaseAgent):
 
     def _rule_based_plan(self, dimensions: List, domains: List, data: Dict) -> List[Dict]:
         """
-        基于规则的内容规划 - 从实际数据中提取内容
+        基于规则的内容规划 - 使用灵活的列名匹配
         """
         slides = []
         overview_results = data.get("整体评估概览", [])
         product_domains = data.get("产品域列表", [])
 
+        # 灵活的列名映射 - 尝试多种可能的列名
+        def get_field(item, *field_names):
+            """尝试获取任意可能的字段名"""
+            for fn in field_names:
+                if fn in item:
+                    return item[fn]
+                # 也尝试模糊匹配
+                for k in item.keys():
+                    if fn in k or k in fn:
+                        return item[k]
+            return None
+
         # 解析整体评估概览数据
         dimension_summary = {}
         for item in overview_results:
-            dim_code = item.get("评估维度", "")
+            dim_code = get_field(item, "评估维度", "维度", "维度名称") or ""
             if not dim_code:
                 continue
             mt_code = dim_code.split("-")[0] if "-" in dim_code else dim_code
@@ -79,20 +91,35 @@ class ContentPlannerAgent(BaseAgent):
                 }
 
             summary = dimension_summary[mt_code]
-            summary["通过数"] += int(item.get("通过数", 0) or 0)
-            summary["待改进数"] += int(item.get("待改进数", 0) or 0)
-            summary["不通过数"] += int(item.get("不通过数", 0) or 0)
+            # 使用灵活的字段获取，使用英文变量名避免编码问题
+            passed = get_field(item, "passed", "pass", "ok") or 0
+            tofix = get_field(item, "tofix", "fix", "pending") or 0
+            failed = get_field(item, "failed", "fail", "ng") or 0
+
+            try:
+                summary["passed"] = summary.get("passed", 0) + int(passed) if passed else 0
+            except:
+                pass
+            try:
+                summary["tofix"] = summary.get("tofix", 0) + int(tofix) if tofix else 0
+            except:
+                pass
+            try:
+                summary["failed"] = summary.get("failed", 0) + int(failed) if failed else 0
+            except:
+                pass
+
             total = summary["通过数"] + summary["待改进数"] + summary["不通过数"]
             if total > 0:
                 summary["通过率"] = f"{int(summary['通过数'] * 100 / total)}%"
-            if item.get("风险等级"):
-                summary["风险"] = item.get("风险等级", "")
-            if item.get("整体评估结论"):
-                summary["整体评估结论"] = item.get("整体评估结论", "")
-            if item.get("主要风险描述"):
-                summary["主要风险描述"] = item.get("主要风险描述", "")
-            if item.get("优化建议"):
-                summary["优化建议"] = item.get("优化建议", "")
+            if get_field(item, "风险等级", "风险", "等级"):
+                summary["风险"] = get_field(item, "风险等级", "风险", "等级")
+            if get_field(item, "整体评估结论", "评估结论", "结论"):
+                summary["整体评估结论"] = get_field(item, "整体评估结论", "评估结论", "结论")
+            if get_field(item, "主要风险描述", "风险描述", "描述"):
+                summary["主要风险描述"] = get_field(item, "主要风险描述", "风险描述", "描述")
+            if get_field(item, "优化建议", "建议", "suggestion"):
+                summary["优化建议"] = get_field(item, "优化建议", "建议", "suggestion")
 
         # 生成highlights
         highlights = []

@@ -102,10 +102,39 @@ class BaseAgent:
         return None
 
     def _init_llm(self):
-        """初始化LLM客户端 - 不再从Config读取，由宿主Agent注入"""
-        # 移除Config依赖，SKILL不主动初始化LLM
-        # 宿主Agent可通过set_llm_client()注入
-        pass
+        """初始化LLM客户端 - 自动检测 Claude Code 环境变量或由宿主Agent注入"""
+        # 如果已有注入的客户端，跳过
+        if self._has_llm():
+            return
+
+        # 尝试从环境变量自动初始化（支持 Claude Code 的 ANTHROPIC_ 前缀）
+        api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY")
+        base_url = os.environ.get("ANTHROPIC_BASE_URL") or os.environ.get("LLM_BASE_URL")
+        model = os.environ.get("ANTHROPIC_MODEL") or os.environ.get("LLM_MODEL", "MiniMax-M2.5")
+
+        if api_key:
+            try:
+                from anthropic import Anthropic
+                self._client = Anthropic(
+                    api_key=api_key,
+                    base_url=base_url or "https://api.anthropic.com"
+                )
+                self._llm_model = model
+                self._safe_print(f"[BaseAgent] Auto-initialized LLM: {model}")
+            except ImportError:
+                # 如果没有安装 anthropic SDK，尝试使用 langchain
+                try:
+                    from langchain_anthropic import ChatAnthropic
+                    self._client = ChatAnthropic(
+                        model=model,
+                        anthropic_api_key=api_key,
+                        base_url=base_url
+                    )
+                    self._safe_print(f"[BaseAgent] Auto-initialized LLM (langchain): {model}")
+                except ImportError:
+                    self._safe_print("[BaseAgent] No LLM SDK available")
+            except Exception as e:
+                self._safe_print(f"[BaseAgent] LLM init failed: {e}")
 
     def _safe_print(self, msg: str, limit: int = 200):
         """Safe print to avoid encoding errors"""
