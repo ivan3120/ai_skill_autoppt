@@ -22,6 +22,8 @@ Thumbs.db
 storage/ppt/*.pptx
 storage/ppt/
 storage/excel/*.xlsx
+scripts/storage/ppt/*.pptx
+scripts/storage/
 *.log
 
 # Claude
