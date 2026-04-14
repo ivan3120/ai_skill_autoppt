@@ -25,6 +25,66 @@ class ContentPlannerAgent(BaseAgent):
         super().__init__("ContentPlanner", "内容规划师", "content_planner")
         # 加载幻灯片配置
         self.slide_config = slide_config
+        # 加载 LLM prompt 模板
+        self._load_llm_prompts()
+
+    def _load_llm_prompts(self):
+        """加载 LLM prompt 模板"""
+        import os
+        import yaml
+        from pathlib import Path
+
+        # 查找配置文件
+        possible_paths = [
+            'configs/llm_prompts.yaml',
+            Path(__file__).parent.parent.parent / 'configs' / 'llm_prompts.yaml'
+        ]
+
+        self.llm_prompts = {}
+        for path in possible_paths:
+            if os.path.exists(path):
+                with open(path, 'r', encoding='utf-8') as f:
+                    self.llm_prompts = yaml.safe_load(f) or {}
+                break
+
+        # 如果没找到配置文件，使用内置默认
+        if not self.llm_prompts:
+            self.llm_prompts = self._get_default_prompts()
+
+    def _get_default_prompts(self) -> Dict:
+        """获取默认的 prompt 模板"""
+        return {
+            'system_prompt': '''你是一位专业的PPT内容规划师，专门为云核心网网络架构评估报告生成内容。''',
+            'user_prompt_template': '''根据以下评估数据生成专业内容...''',
+            'summary_prompt': '''基于评估数据生成总结与优化建议...'''
+        }
+
+    def _build_llm_content_prompt(self, data: Dict, dimensions: List) -> str:
+        """构建 LLM 内容生成的 prompt"""
+        import json
+
+        overview_results = data.get("整体评估概览", [])
+        product_domains = data.get("产品域列表", [])
+
+        # 准备上下文
+        context = {
+            'dimensions': dimensions,
+            'product_domains': product_domains,
+            'overview_results': overview_results
+        }
+
+        # 使用 prompt 模板
+        prompt = self.llm_prompts.get('user_prompt_template', '')
+        if prompt:
+            prompt = prompt.format(
+                dimensions=', '.join(dimensions),
+                product_domains=json.dumps(product_domains, ensure_ascii=False, indent=2)[:500],
+                overview_results=json.dumps(overview_results[:10], ensure_ascii=False, indent=2)
+            )
+        else:
+            prompt = f"请根据以下数据生成专业的评估报告内容：{json.dumps(context, ensure_ascii=False)[:1000]}"
+
+        return prompt
 
     def execute(self, input_data: Dict) -> AgentResult:
         """
@@ -36,19 +96,21 @@ class ContentPlannerAgent(BaseAgent):
 
         # 使用LLM进行智能规划
         if self._has_llm():
-            # 从prompt文件加载LLM指令
-            user_message = self._load_llm_prompt(
-                self.llm_prompt_file,
-                dimensions=', '.join(selected_dimensions),
-                product_domains=parsed_data.get('产品域列表', []),
-                overview_results=parsed_data.get('整体评估概览', [])
-            )
+            # 构建 LLM prompt
+            user_message = self._build_llm_content_prompt(parsed_data, selected_dimensions)
+
+            # 添加系统 prompt
+            self.prompt_template = self.llm_prompts.get('system_prompt', '')
 
             llm_result = self.invoke_llm(user_message, context=parsed_data)
             self._safe_print(f"[ContentPlanner] LLM: {llm_result[:200]}...")
 
             # 解析LLM结果生成幻灯片结构
             slides = self._parse_llm_plan(llm_result, selected_dimensions, parsed_data)
+
+            # 如果 LLM 结果解析失败，回退到规则引擎
+            if not slides:
+                slides = self._rule_based_plan(selected_dimensions, selected_domains, parsed_data)
         else:
             # 规则引擎fallback
             slides = self._rule_based_plan(selected_dimensions, selected_domains, parsed_data)

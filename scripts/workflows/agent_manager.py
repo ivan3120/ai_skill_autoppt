@@ -17,6 +17,7 @@ from scripts.config import Config
 from scripts.agents.base import BaseAgent, AgentResult
 from scripts.agents.data_analyst import DataAnalystAgent
 from scripts.agents.content_planner import ContentPlannerAgent
+from scripts.agents.content_enhancer import ContentEnhancerAgent
 from scripts.agents.visual_designer import VisualDesignerAgent
 from scripts.agents.image_matcher import ImageMatcherAgent
 from scripts.agents.quality_reviewer import QualityReviewerAgent
@@ -30,6 +31,7 @@ def get_agent(agent_type: str) -> BaseAgent:
     agents = {
         "data_analyst": DataAnalystAgent,
         "content_planner": ContentPlannerAgent,
+        "content_enhancer": ContentEnhancerAgent,
         "visual_designer": VisualDesignerAgent,
         "image_matcher": ImageMatcherAgent,
         "quality_reviewer": QualityReviewerAgent,

@@ -1,0 +1,90 @@
+# ContentPlanner LLM Prompt 模板
+# 用于让 LLM 生成幻灯片内容
+
+system_prompt: |
+  你是一位专业的PPT内容规划师，专门为云核心网网络架构评估报告生成内容。
+  你的任务是根据评估数据，生成专业的分析结论和优化建议。
+
+user_prompt_template: |
+  ## 任务
+  根据以下评估数据，为云核心网网络架构评估报告生成专业的内容。
+
+  ## 评估维度
+  {dimensions}
+
+  ## 产品域数据
+  {product_domains}
+
+  ## 整体评估概览
+  {overview_results}
+
+  ## 要求
+  1. 为每个评估维度生成专业的分析结论
+  2. 识别关键风险点，用专业语言描述
+  3. 提供可执行的优化建议
+  4. 生成整体总结和优先级建议
+
+  ## 输出格式
+  请以JSON格式输出，结构如下：
+  ```json
+  {
+    "dimension_analysis": [
+      {
+        "dimension": "MT0",
+        "dimension_name": "网元高稳评估",
+        "conclusion": "分析结论（2-3句话）",
+        "key_findings": ["发现1", "发现2", "发现3"],
+        "risks": ["风险1", "风险2"],
+        "suggestions": ["建议1", "建议2"]
+      }
+    ],
+    "overall_summary": "整体总结（3-4句话）",
+    "priorities": [
+      {"priority": "高", "issue": "问题描述", "suggestion": "建议描述"}
+    ],
+    "next_steps": "下一步行动计划"
+  }
+  ```
+
+# 封面页内容生成
+cover_prompt: |
+  根据以下信息生成专业的封面标题：
+
+  - 产品域: {domains}
+  - 评估维度: {dimensions}
+
+  请生成一个专业的报告标题，要求：
+  1. 简洁明了，体现评估主题
+  2. 体现专业性和权威性
+
+  输出格式：
+  ```json
+  {
+    "title": "生成的标题",
+    "subtitle": "副标题（可选）"
+  }
+  ```
+
+# 总结页内容生成
+summary_prompt: |
+  基于以下评估数据，生成总结与优化建议：
+
+  - 整体通过率: {overall_rate}
+  - 高风险维度: {high_risk_dims}
+  - 评估维度详情: {dimension_summary}
+
+  请生成：
+  1. 整体总结（2-3句话）
+  2. 优先级排序的优化建议
+  3. 下一步行动计划
+
+  输出格式：
+  ```json
+  {
+    "overall_summary": "整体总结",
+    "priorities": [
+      {"priority": "高/中/低", "issue": "问题", "suggestion": "建议"}
+    ],
+    "next_steps": "下一步计划"
+  }
+  ```
