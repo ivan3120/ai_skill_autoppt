@@ -102,39 +102,86 @@ class BaseAgent:
         return None
 
     def _init_llm(self):
-        """初始化LLM客户端 - 自动检测 Claude Code 环境变量或由宿主Agent注入"""
+        """初始化LLM客户端 - 自动检测多种 LLM 提供商"""
         # 如果已有注入的客户端，跳过
         if self._has_llm():
             return
 
-        # 尝试从环境变量自动初始化（支持 Claude Code 的 ANTHROPIC_ 前缀）
-        api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY")
-        base_url = os.environ.get("ANTHROPIC_BASE_URL") or os.environ.get("LLM_BASE_URL")
-        model = os.environ.get("ANTHROPIC_MODEL") or os.environ.get("LLM_MODEL", "MiniMax-M2.5")
+        # 导入配置获取提供商信息
+        from scripts.config import LLMConfig
+        llm_config = LLMConfig()
 
-        if api_key:
-            try:
-                from anthropic import Anthropic
-                self._client = Anthropic(
-                    api_key=api_key,
-                    base_url=base_url or "https://api.anthropic.com"
-                )
-                self._llm_model = model
-                self._safe_print(f"[BaseAgent] Auto-initialized LLM: {model}")
-            except ImportError:
-                # 如果没有安装 anthropic SDK，尝试使用 langchain
-                try:
-                    from langchain_anthropic import ChatAnthropic
-                    self._client = ChatAnthropic(
-                        model=model,
-                        anthropic_api_key=api_key,
-                        base_url=base_url
-                    )
-                    self._safe_print(f"[BaseAgent] Auto-initialized LLM (langchain): {model}")
-                except ImportError:
-                    self._safe_print("[BaseAgent] No LLM SDK available")
-            except Exception as e:
-                self._safe_print(f"[BaseAgent] LLM init failed: {e}")
+        if not llm_config.is_available:
+            self._safe_print("[BaseAgent] No LLM API key found")
+            return
+
+        api_key = llm_config.api_key
+        base_url = llm_config.base_url
+        model = llm_config.model
+        provider = llm_config.provider_name
+
+        self._safe_print(f"[BaseAgent] Detected LLM provider: {provider}")
+
+        try:
+            if provider == LLMConfig.PROVIDER_MINIMAX:
+                self._init_minimax(api_key, base_url, model)
+            elif provider == LLMConfig.PROVIDER_ANTHROPIC:
+                self._init_anthropic(api_key, base_url, model)
+            elif provider == LLMConfig.PROVIDER_OPENAI:
+                self._init_openai(api_key, base_url, model)
+            else:
+                # 默认尝试 MiniMax
+                self._init_minimax(api_key, base_url, model)
+        except Exception as e:
+            self._safe_print(f"[BaseAgent] LLM init failed: {e}")
+
+    def _init_minimax(self, api_key: str, base_url: str, model: str):
+        """初始化 MiniMax LLM 客户端"""
+        try:
+            from openai import OpenAI
+            self._client = OpenAI(
+                api_key=api_key,
+                base_url=base_url or "https://api.minimax.com/v1"
+            )
+            self._llm_model = model
+            self._llm_provider = "minimax"
+            self._safe_print(f"[BaseAgent] MiniMax LLM initialized: {model}")
+        except ImportError:
+            self._safe_print("[BaseAgent] openai SDK not installed")
+        except Exception as e:
+            self._safe_print(f"[BaseAgent] MiniMax init failed: {e}")
+
+    def _init_anthropic(self, api_key: str, base_url: str, model: str):
+        """初始化 Anthropic LLM 客户端"""
+        try:
+            from anthropic import Anthropic
+            self._client = Anthropic(
+                api_key=api_key,
+                base_url=base_url or "https://api.anthropic.com"
+            )
+            self._llm_model = model
+            self._llm_provider = "anthropic"
+            self._safe_print(f"[BaseAgent] Anthropic LLM initialized: {model}")
+        except ImportError:
+            self._safe_print("[BaseAgent] anthropic SDK not installed")
+        except Exception as e:
+            self._safe_print(f"[BaseAgent] Anthropic init failed: {e}")
+
+    def _init_openai(self, api_key: str, base_url: str, model: str):
+        """初始化 OpenAI LLM 客户端"""
+        try:
+            from openai import OpenAI
+            self._client = OpenAI(
+                api_key=api_key,
+                base_url=base_url or "https://api.openai.com/v1"
+            )
+            self._llm_model = model
+            self._llm_provider = "openai"
+            self._safe_print(f"[BaseAgent] OpenAI LLM initialized: {model}")
+        except ImportError:
+            self._safe_print("[BaseAgent] openai SDK not installed")
+        except Exception as e:
+            self._safe_print(f"[BaseAgent] OpenAI init failed: {e}")
 
     def _safe_print(self, msg: str, limit: int = 200):
         """Safe print to avoid encoding errors"""
@@ -250,28 +297,72 @@ class BaseAgent:
             return f"LLM调用失败: {str(e)}"
 
     def _invoke_direct_sdk(self, system_message: str, user_message: str) -> str:
-        """直接使用Anthropic SDK调用LLM"""
+        """直接使用 SDK 调用 LLM（支持 MiniMax/Anthropic/OpenAI）"""
         try:
-            llm_config = Config.get_llm_config()
+            from scripts.config import LLMConfig
+            llm_config = LLMConfig()
+            provider = getattr(self, '_llm_provider', None)
 
             # 构建完整消息
             full_message = f"{system_message}\n\n用户请求: {user_message}"
 
-            message = self._client.messages.create(
+            if provider == "minimax" or provider is None:
+                # MiniMax / OpenAI 兼容格式
+                return self._invoke_minimax(full_message, llm_config)
+            elif provider == "anthropic":
+                # Anthropic 格式
+                return self._invoke_anthropic(full_message, llm_config)
+            elif provider == "openai":
+                # OpenAI 格式
+                return self._invoke_openai(full_message, llm_config)
+            else:
+                # 默认尝试 MiniMax
+                return self._invoke_minimax(full_message, llm_config)
+
+        except Exception as e:
+            return f"LLM调用失败: {str(e)}"
+
+    def _invoke_minimax(self, message: str, llm_config) -> str:
+        """调用 MiniMax API"""
+        try:
+            response = self._client.chat.completions.create(
+                model=llm_config.model,
+                messages=[{"role": "user", "content": message}],
+                temperature=llm_config.temperature,
+                max_tokens=llm_config.max_tokens
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"MiniMax调用失败: {str(e)}"
+
+    def _invoke_anthropic(self, message: str, llm_config) -> str:
+        """调用 Anthropic API"""
+        try:
+            response = self._client.messages.create(
                 model=llm_config.model,
                 max_tokens=llm_config.max_tokens,
                 temperature=llm_config.temperature,
-                messages=[{'role': 'user', 'content': full_message}]
+                messages=[{"role": "user", "content": message}]
             )
-
-            # 解析响应
-            for content in message.content:
+            for content in response.content:
                 if hasattr(content, 'text'):
                     return content.text
-
             return "未获取到有效响应"
         except Exception as e:
-            return f"LLM调用失败: {str(e)}"
+            return f"Anthropic调用失败: {str(e)}"
+
+    def _invoke_openai(self, message: str, llm_config) -> str:
+        """调用 OpenAI API"""
+        try:
+            response = self._client.chat.completions.create(
+                model=llm_config.model,
+                messages=[{"role": "user", "content": message}],
+                temperature=llm_config.temperature,
+                max_tokens=llm_config.max_tokens
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"OpenAI调用失败: {str(e)}"
 
     def _fallback_response(self, user_message: str, context: Dict = None) -> str:
         """无LLM时的降级响应"""

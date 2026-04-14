@@ -44,10 +44,13 @@ def get_agent(agent_type: str) -> BaseAgent:
 
 
 def is_llm_available() -> bool:
-    """检查LLM是否可用（支持 Claude Code 环境变量）"""
-    # 优先检测 Claude Code 的环境变量
+    """检查LLM是否可用（支持多种提供商）"""
     import os
-    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("LLM_API_KEY"):
+    # 支持多种环境变量
+    if (os.environ.get("ANTHROPIC_API_KEY") or
+        os.environ.get("LLM_API_KEY") or
+        os.environ.get("MINIMAX_API_KEY") or
+        os.environ.get("OPENAI_API_KEY")):
         return True
     return Config.is_llm_available()
 

@@ -85,29 +85,86 @@ class Config:
 class LLMConfig:
     """LLM配置类"""
 
+    # LLM 提供商枚举
+    PROVIDER_MINIMAX = "minimax"
+    PROVIDER_ANTHROPIC = "anthropic"
+    PROVIDER_OPENAI = "openai"
+
     def __init__(self):
-        # 优先从 Claude Code 环境变量获取
-        # Claude Code 使用 ANTHROPIC_ 前缀的环境变量
-        # 也支持 LLM_ 前缀的通用变量
-        self.api_key = (
-            os.environ.get("ANTHROPIC_API_KEY") or
-            os.environ.get("LLM_API_KEY") or
-            Config.get("llm.api_key", "")
-        )
-        self.base_url = (
-            os.environ.get("ANTHROPIC_BASE_URL") or
-            os.environ.get("LLM_BASE_URL") or
-            Config.get("llm.base_url", "https://api.minimax.com/anthropic")
-        )
-        self.model = (
-            os.environ.get("ANTHROPIC_MODEL") or
-            os.environ.get("LLM_MODEL") or
-            Config.get("llm.model", "MiniMax-M2.5")
-        )
+        # 自动检测 LLM 提供商
+        self._detect_provider()
+
+        # MiniMax 配置
+        self.minimax_api_key = os.environ.get("MINIMAX_API_KEY") or os.environ.get("LLM_API_KEY", "")
+        self.minimax_base_url = os.environ.get("MINIMAX_BASE_URL") or os.environ.get("LLM_BASE_URL", "https://api.minimax.com/v1")
+        self.minimax_model = os.environ.get("MINIMAX_MODEL") or os.environ.get("LLM_MODEL", "MiniMax-M2.5")
+
+        # Anthropic 配置
+        self.anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        self.anthropic_base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+        self.anthropic_model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+
+        # OpenAI 配置
+        self.openai_api_key = os.environ.get("OPENAI_API_KEY", "")
+        self.openai_base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        self.openai_model = os.environ.get("OPENAI_MODEL", "gpt-4o")
+
+        # 统一配置（基于检测到的提供商）
+        self.api_key = self._get_provider_api_key()
+        self.base_url = self._get_provider_base_url()
+        self.model = self._get_provider_model()
+
         self.temperature = 0.7
         self.max_tokens = 4096
+
+    def _detect_provider(self):
+        """自动检测 LLM 提供商"""
+        # 优先级: MiniMax > Anthropic > OpenAI
+        if os.environ.get("MINIMAX_API_KEY") or os.environ.get("LLM_API_KEY"):
+            self.provider = self.PROVIDER_MINIMAX
+        elif os.environ.get("ANTHROPIC_API_KEY"):
+            self.provider = self.PROVIDER_ANTHROPIC
+        elif os.environ.get("OPENAI_API_KEY"):
+            self.provider = self.PROVIDER_OPENAI
+        else:
+            self.provider = None
+
+    def _get_provider_api_key(self) -> str:
+        """获取当前提供商的 API Key"""
+        if self.provider == self.PROVIDER_MINIMAX:
+            return self.minimax_api_key
+        elif self.provider == self.PROVIDER_ANTHROPIC:
+            return self.anthropic_api_key
+        elif self.provider == self.PROVIDER_OPENAI:
+            return self.openai_api_key
+        return ""
+
+    def _get_provider_base_url(self) -> str:
+        """获取当前提供商的 Base URL"""
+        if self.provider == self.PROVIDER_MINIMAX:
+            return self.minimax_base_url
+        elif self.provider == self.PROVIDER_ANTHROPIC:
+            return self.anthropic_base_url
+        elif self.provider == self.PROVIDER_OPENAI:
+            return self.openai_base_url
+        return "https://api.minimax.com/v1"
+
+    def _get_provider_model(self) -> str:
+        """获取当前提供商的模型"""
+        if self.provider == self.PROVIDER_MINIMAX:
+            return self.minimax_model
+        elif self.provider == self.PROVIDER_ANTHROPIC:
+            return self.anthropic_model
+        elif self.provider == self.PROVIDER_OPENAI:
+            return self.openai_model
+        return "MiniMax-M2.5"
 
     @property
     def is_available(self) -> bool:
         """检查是否可用"""
         return bool(self.api_key)
+
+    @property
+    def provider_name(self) -> str:
+        """获取提供商名称"""
+        return self.provider or "none"
