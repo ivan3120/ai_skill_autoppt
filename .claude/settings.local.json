@@ -69,7 +69,8 @@
       "Bash(cd E:/project/AI/CAMEL-AI/ai_skill_autoppt && grep -n \"from scripts\" test/*.py | head -30)",
       "Bash(cd E:/project/AI/CAMEL-AI/ai_skill_autoppt && python test/test_with_mock_llm.py 2>&1 | tail -20)",
       "Bash(ping -n 2 github.com 2>&1 | tail -3)",
-      "Bash(ls -la E:/project/AI/CAMEL-AI/ai_skill_autoppt/assets/*.xlsx 2>/dev/null && ls -la E:/project/AI/CAMEL-AI/ai_skill_autoppt/scripts/storage/ppt/*.pptx 2>/dev/null | tail -10)"
+      "Bash(ls -la E:/project/AI/CAMEL-AI/ai_skill_autoppt/assets/*.xlsx 2>/dev/null && ls -la E:/project/AI/CAMEL-AI/ai_skill_autoppt/scripts/storage/ppt/*.pptx 2>/dev/null | tail -10)",
+      "Bash(cd E:/project/AI/CAMEL-AI/ai_skill_autoppt && python -c \"\nimport sys\nsys.path.insert\\(0, '.'\\)\n\nprint\\('='*60\\)\nprint\\('测试: 配置化的 ContentPlanner'\\)\nprint\\('='*60\\)\n\nfrom scripts.workflows.agent_manager import generate_ppt_workflow\n\nresult = generate_ppt_workflow\\(\n    excel_path='test/data/test_operator_A_5G.xlsx',\n    user_selections={\n        'dimensions': ['MT0', 'MT1', 'MT2'],\n        'domains': ['5G核心网'],\n        'template': 'default',\n        'use_llm': False\n    }\n\\)\n\nprint\\(f'\\\\\\\\nStatus: {result[\\\\\"status\\\\\"]}'\\)\nif result['status'] == 'success':\n    print\\(f'PPT: {result[\\\\\"data\\\\\"][\\\\\"ppt_path\\\\\"]}'\\)\n    print\\(f'Slides: {result[\\\\\"data\\\\\"][\\\\\"slides_count\\\\\"]}'\\)\nelse:\n    print\\(f'Error: {result.get\\(\\\\\"message\\\\\", \\\\\"Unknown\\\\\"\\)}'\\)\n\")"
     ]
   }
 }

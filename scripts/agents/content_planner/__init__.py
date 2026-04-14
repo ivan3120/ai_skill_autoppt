@@ -3,12 +3,14 @@
 ContentPlanner Agent - 内容规划师
 
 独立解耦的Agent模块，负责规划PPT报告的内容结构和故事线。
+支持配置化幻灯片模板
 """
 
 import json
 import re
 from typing import Dict, List
 from scripts.agents.base import BaseAgent, AgentResult
+from scripts.services.slide_config import SlideConfig, config as slide_config
 
 
 class ContentPlannerAgent(BaseAgent):
@@ -21,6 +23,8 @@ class ContentPlannerAgent(BaseAgent):
 
     def __init__(self):
         super().__init__("ContentPlanner", "内容规划师", "content_planner")
+        # 加载幻灯片配置
+        self.slide_config = slide_config
 
     def execute(self, input_data: Dict) -> AgentResult:
         """
@@ -137,42 +141,43 @@ class ContentPlannerAgent(BaseAgent):
         total_all = total_pass + sum(s["待改进数"] + s["不通过数"] for s in dimension_summary.values())
         overall_rate = f"{int(total_pass * 100 / total_all)}%" if total_all > 0 else "0%"
 
-        # 1. 封面页
+        # 1. 封面页 - 使用配置
+        cover_config = self.slide_config.get_slide_type('cover')
         cover_title = "云核心网网络架构评估报告"
         if domains:
             cover_title = f"{domains[0]}网络架构评估报告"
 
         slides.append({
-            "type": "cover", "title": cover_title, "subtitle": "运营商客户汇报材料", "date": "2026年4月"
+            "type": "cover",
+            "title": cover_title,
+            "subtitle": cover_config.get("subtitle", "运营商客户汇报材料"),
+            "date": cover_config.get("date", "2026年4月")
         })
 
-        # 2. 目录页
+        # 2. 目录页 - 使用配置
+        toc_config = self.slide_config.get_slide_type('toc')
+        toc_items = self.slide_config.build_toc_items(dimensions)
         slides.append({
-            "type": "toc", "title": "目录", "items": [
-                "一、评估方案介绍", "二、业务背景与网络概况", "三、整体评估概览",
-                "四、网元高稳评估（MT0）" if "MT0" in dimensions else None,
-                "五、部署离散度评估（MT1）" if "MT1" in dimensions else None,
-                "六、组网架构高可用评估（MT2）" if "MT2" in dimensions else None,
-                "七、业务路由高可用评估（MT3）" if "MT3" in dimensions else None,
-                "八、网络容量评估（MT4）" if "MT4" in dimensions else None,
-                "九、网元版本EOS评估（MT5）" if "MT5" in dimensions else None,
-                "十、云平台版本EOS评估（MT6）" if "MT6" in dimensions else None,
-                "十一、总结与优化建议"
-            ]
+            "type": "toc",
+            "title": toc_config.get("title", "目录"),
+            "items": toc_items
         })
-        slides[-1]["items"] = [i for i in slides[-1]["items"] if i]
 
-        # 3. 评估方案介绍
+        # 3. 评估方案介绍 - 使用配置
+        intro_config = self.slide_config.get_slide_type('intro')
         slides.append({
-            "type": "intro", "title": "一、评估方案介绍", "content": {
+            "type": "intro",
+            "title": intro_config.get("title", "一、评估方案介绍"),
+            "content": {
                 "评估维度": dimensions,
                 "评估产品域": domains if domains else [pd.get("name", "") for pd in product_domains[:5]],
-                "评估方法": "现场调研+系统检测+数据分析",
-                "评估标准": "依据MT0-MT6七维评估体系"
+                "评估方法": intro_config.get("default", {}).get("评估方法", "现场调研+系统检测+数据分析"),
+                "评估标准": intro_config.get("default", {}).get("评估标准", "依据MT0-MT6七维评估体系")
             }
         })
 
-        # 4. 业务背景
+        # 4. 业务背景 - 使用配置
+        bg_config = self.slide_config.get_slide_type('background')
         domain_summary = []
         for pd in product_domains[:5]:
             pd_name = pd.get("name", "")
@@ -185,16 +190,21 @@ class ContentPlannerAgent(BaseAgent):
         total_dr = sum(d.get("dr_count", 0) for d in domain_summary)
 
         slides.append({
-            "type": "background", "title": "二、业务背景与网络概况", "content": {
+            "type": "background",
+            "title": bg_config.get("title", "二、业务背景与网络概况"),
+            "content": {
                 "总体网元数": total_ne if total_ne > 0 else len(overview_results) * 5,
                 "容灾组数": total_dr if total_dr > 0 else len(product_domains) * 3,
                 "产品域分布": domain_summary if domain_summary else [{"name": d, "ne_count": 10, "dr_count": 2} for d in domains[:4]]
             }
         })
 
-        # 5. 整体评估概览
+        # 5. 整体评估概览 - 使用配置
+        overview_config = self.slide_config.get_slide_type('overview')
         slides.append({
-            "type": "overview", "title": "三、整体评估概览", "content": {
+            "type": "overview",
+            "title": overview_config.get("title", "三、整体评估概览"),
+            "content": {
                 "description": "各评估维度整体情况汇总",
                 "highlights": highlights if highlights else [
                     {"维度": "MT0-网元高稳", "通过率": "80%", "风险": "中", "状态": "良好"},
@@ -204,20 +214,12 @@ class ContentPlannerAgent(BaseAgent):
             }
         })
 
-        # 6-12. 各评估维度详情页
-        dimension_map = {
-            "MT0": {"name": "网元高稳评估", "idx": 4},
-            "MT1": {"name": "部署离散度评估", "idx": 5},
-            "MT2": {"name": "组网架构高可用评估", "idx": 6},
-            "MT3": {"name": "业务路由高可用评估", "idx": 7},
-            "MT4": {"name": "网络容量评估", "idx": 8},
-            "MT5": {"name": "网元版本EOS评估", "idx": 9},
-            "MT6": {"name": "云平台版本EOS评估", "idx": 10}
-        }
-
+        # 6-12. 各评估维度详情页 - 使用配置
         for idx, mt in enumerate(["MT0", "MT1", "MT2", "MT3", "MT4", "MT5", "MT6"]):
             if mt not in dimensions:
                 continue
+
+            dim_config = self.slide_config.get_dimension(mt)
 
             mt_items = [item for item in overview_results if item.get("评估维度", "").startswith(mt)]
             findings, risks, suggestions, pass_rates = [], [], [], []
@@ -242,26 +244,33 @@ class ContentPlannerAgent(BaseAgent):
                 elif any("中" in str(r) for r in risks):
                     risk = "中"
 
-            dim_info = dimension_map.get(mt, {"name": mt})
+            # 使用配置获取标题和状态
+            dim_title = self.slide_config.get_dimension_title(mt, dimensions)
+            status = self.slide_config.get_status_for_risk(risk)
 
             slides.append({
                 "type": "dimension_detail",
-                "title": f"{dimension_map[mt]['idx']}、{dim_info['name']}",
-                "pass_rate": avg_rate, "risk": risk,
-                "overview": f"评估网元的{dim_info['name']}情况",
+                "title": dim_title,
+                "pass_rate": avg_rate,
+                "risk": risk,
+                "status": status,
+                "overview": f"评估{dim_config.get('name', mt)}情况",
                 "findings": findings[:3] if findings else ["数据评估中..."],
                 "risks": risks[:2] if risks else ["暂无风险描述"],
                 "suggestions": suggestions[:2] if suggestions else ["暂无优化建议"]
             })
 
-        # 13. 总结与优化建议
+        # 13. 总结与优化建议 - 使用配置
+        summary_config = self.slide_config.get_slide_type('summary')
         high_risk_dims = [h["维度"] for h in highlights if h.get("风险") == "高"]
         summary_text = f"整体评估结果: {overall_rate}通过率"
         if high_risk_dims:
             summary_text += f"，{', '.join(high_risk_dims)}存在较高风险，需重点关注"
 
         slides.append({
-            "type": "summary", "title": "十一、总结与优化建议", "content": {
+            "type": "summary",
+            "title": summary_config.get("title", "十一、总结与优化建议"),
+            "content": {
                 "overall": summary_text,
                 "priorities": [
                     {"优先级": "高", "问题": dim, "建议": dimension_summary.get(dim.split('-')[0], {}).get("优化建议", "需优化")}

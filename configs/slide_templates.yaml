@@ -1,0 +1,167 @@
+# 云核心网评估报告 PPT 幻灯片模板配置
+# 用于配置幻灯片结构和内容字段
+
+# 幻灯片类型定义
+slide_types:
+  # 封面页
+  cover:
+    title: "云核心网网络架构评估报告"
+    subtitle: "运营商客户汇报材料"
+    date: "2026年4月"
+    fields:
+      - name: title
+        type: string
+        required: true
+      - name: subtitle
+        type: string
+        default: "运营商客户汇报材料"
+      - name: date
+        type: string
+        default: "2026年4月"
+
+  # 目录页
+  toc:
+    title: "目录"
+    fields:
+      - name: items
+        type: list
+        required: true
+
+  # 评估方案介绍
+  intro:
+    title: "一、评估方案介绍"
+    fields:
+      - name: 评估维度
+        type: list
+        data_key: dimensions
+      - name: 评估产品域
+        type: list
+        data_key: domains
+      - name: 评估方法
+        type: string
+        default: "现场调研+系统检测+数据分析"
+      - name: 评估标准
+        type: string
+        default: "依据MT0-MT6七维评估体系"
+
+  # 业务背景
+  background:
+    title: "二、业务背景与网络概况"
+    fields:
+      - name: 总体网元数
+        type: number
+        data_key: total_ne
+      - name: 容灾组数
+        type: number
+        data_key: total_dr
+      - name: 产品域分布
+        type: list
+        data_key: domain_summary
+
+  # 整体评估概览
+  overview:
+    title: "三、整体评估概览"
+    fields:
+      - name: 描述
+        type: string
+        default: "各评估维度整体情况汇总"
+      - name: highligts
+        type: list
+        data_key: highlights
+      - name: overall
+        type: string
+        data_key: overall_summary
+
+  # 评估维度详情页
+  dimension_detail:
+    title_pattern: "{idx}、{name}"
+    fields:
+      - name: 通过率
+        type: string
+        data_key: pass_rate
+      - name: 风险等级
+        type: string
+        data_key: risk
+      - name: 概述
+        type: string
+        data_key: overview
+      - name: 发现
+        type: list
+        data_key: findings
+      - name: 风险
+        type: list
+        data_key: risks
+      - name: 建议
+        type: list
+        data_key: suggestions
+
+  # 总结与优化建议
+  summary:
+    title: "十一、总结与优化建议"
+    fields:
+      - name: 整体结论
+        type: string
+        data_key: overall
+      - name: 优先级
+        type: list
+        data_key: priorities
+      - name: 下一步
+        type: string
+        data_key: next_steps
+
+# 评估维度映射
+dimensions:
+  MT0:
+    name: "网元高稳评估"
+    short_name: "网元高稳"
+    idx: 4
+  MT1:
+    name: "部署离散度评估"
+    short_name: "部署离散度"
+    idx: 5
+  MT2:
+    name: "组网架构高可用评估"
+    short_name: "组网架构"
+    idx: 6
+  MT3:
+    name: "业务路由高可用评估"
+    short_name: "业务路由"
+    idx: 7
+  MT4:
+    name: "网络容量评估"
+    short_name: "网络容量"
+    idx: 8
+  MT5:
+    name: "网元版本EOS评估"
+    short_name: "网元版本"
+    idx: 9
+  MT6:
+    name: "云平台版本EOS评估"
+    short_name: "云平台版本"
+    idx: 10
+
+# 目录项模板
+toc_template:
+  - "一、评估方案介绍"
+  - "二、业务背景与网络概况"
+  - "三、整体评估概览"
+  - "四、{mt0_name}"
+  - "五、{mt1_name}"
+  - "六、{mt2_name}"
+  - "七、{mt3_name}"
+  - "八、{mt4_name}"
+  - "九、{mt5_name}"
+  - "十、{mt6_name}"
+  - "十一、总结与优化建议"
+
+# 风险等级映射
+risk_levels:
+  high: "高"
+  medium: "中"
+  low: "低"
+
+# 状态映射
+status_mapping:
+  high: "需改进"
+  medium: "待优化"
+  low: "良好"
