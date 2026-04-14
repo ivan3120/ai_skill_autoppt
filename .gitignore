@@ -26,5 +26,7 @@ scripts/storage/ppt/*.pptx
 scripts/storage/
 *.log
 
-# Claude
-.claude/
+# Test
+test/data/
+test/result/
+test/result/*
